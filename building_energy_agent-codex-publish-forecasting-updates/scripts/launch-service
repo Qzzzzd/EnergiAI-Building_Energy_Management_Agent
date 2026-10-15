@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd -- "${project_root}"
+
+port="${BE_PORT:-8787}"
+browser_host="${BE_BROWSER_HOST:-127.0.0.1}"
+health_url="http://${browser_host}:${port}/api/v1/health"
+app_url="http://${browser_host}:${port}"
+server_pid=""
+
+# Keep this launcher local to the current host unless explicitly overridden.
+export BE_HOST="${BE_HOST:-127.0.0.1}"
+
+health_check() {
+  curl --noproxy '*' -fsS --max-time 2 "${health_url}" >/dev/null 2>&1
+}
+
+open_app() {
+  if command -v gio >/dev/null 2>&1 && [[ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
+    gio open "${app_url}" >/dev/null 2>&1 &
+    return 0
+  fi
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "${app_url}" >/dev/null 2>&1 &
+    return 0
+  fi
+  printf '%s\n' "请在浏览器打开：${app_url}"
+}
+
+if health_check; then
+  printf '%s\n' "服务已在运行：${app_url}"
+  open_app
+  exit 0
+fi
+
+export BE_CODEX_APPARMOR_PROFILE="${BE_CODEX_APPARMOR_PROFILE:-linux-sandbox}"
+
+./scripts/start &
+server_pid="$!"
+
+cleanup() {
+  trap - EXIT INT TERM
+  if [[ -n "${server_pid}" ]] && kill -0 "${server_pid}" 2>/dev/null; then
+    kill "${server_pid}" 2>/dev/null || true
+  fi
+  if [[ -n "${server_pid}" ]]; then
+    wait "${server_pid}" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+deadline=$((SECONDS + 60))
+until health_check; do
+  if ! kill -0 "${server_pid}" 2>/dev/null; then
+    wait "${server_pid}"
+    exit 1
+  fi
+  if (( SECONDS >= deadline )); then
+    printf '%s\n' "服务在 60 秒内未通过健康检查：${health_url}" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+printf '%s\n' "服务已启动：${app_url}"
+printf '%s\n' "关闭此终端或按 Ctrl+C 可停止服务。"
+open_app
+wait "${server_pid}"

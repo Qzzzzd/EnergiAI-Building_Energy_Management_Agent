@@ -1,0 +1,4 @@
+timestamp,point_id,value_raw
+2026-01-01T00:00:00+08:00,total_load,101.5
+2026-01-01T00:01:00+08:00,total_load,102.5
+2026-01-01T00:02:00+08:00,total_load,103.5

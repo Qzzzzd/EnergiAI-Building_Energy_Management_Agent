@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd -- "${project_root}"
+
+if [[ "${1:-}" == "--probe-models" ]]; then
+  export BE_PROBE_MODELS=true
+  shift
+fi
+if (($#)); then
+  printf '%s\n' "Usage: scripts/doctor [--probe-models]" >&2
+  exit 2
+fi
+
+server_status=0
+skill_status=0
+./scripts/pnpm --filter @building-energy/server run doctor || server_status="$?"
+env PYTHONDONTWRITEBYTECODE=1 ./scripts/skill-doctor || skill_status="$?"
+
+if ((server_status != 0 || skill_status != 0)); then
+  exit 1
+fi

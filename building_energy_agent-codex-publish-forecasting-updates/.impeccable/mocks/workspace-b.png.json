@@ -1,0 +1,5 @@
+{
+  "prompt_file": "workspace-b.prompt.txt",
+  "approved": false,
+  "rejection_reason": "Repeated horizontal traces compete with the conversation and generated unsupported artifact examples."
+}

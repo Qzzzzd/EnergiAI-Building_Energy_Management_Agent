@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+node_version="24.19.0"
+pnpm_version="11.21.0"
+case "$(uname -m)" in
+  aarch64 | arm64) node_platform="linux-arm64" ;;
+  x86_64 | amd64) node_platform="linux-x64" ;;
+  *)
+    echo "Unsupported architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+node_archive="node-v${node_version}-${node_platform}.tar.xz"
+toolchain_root="${project_root}/.runtime/toolchains"
+node_root="${toolchain_root}/node-v${node_version}-${node_platform}"
+corepack_home="${toolchain_root}/corepack"
+
+if [[ ! -x "${node_root}/bin/node" ]]; then
+  mkdir -p "${toolchain_root}"
+  temp_root="$(mktemp -d)"
+  trap 'rm -rf "${temp_root}"' EXIT
+  curl --fail --silent --show-error --location \
+    "https://nodejs.org/dist/v${node_version}/${node_archive}" \
+    --output "${temp_root}/${node_archive}"
+  curl --fail --silent --show-error --location \
+    "https://nodejs.org/dist/v${node_version}/SHASUMS256.txt" \
+    --output "${temp_root}/SHASUMS256.txt"
+  (
+    cd "${temp_root}"
+    grep " ${node_archive}$" SHASUMS256.txt | sha256sum --check --strict
+  )
+  tar -xJf "${temp_root}/${node_archive}" -C "${toolchain_root}"
+fi
+
+"${node_root}/bin/node" --version
+mkdir -p "${corepack_home}"
+COREPACK_HOME="${corepack_home}" \
+  COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+  PATH="${node_root}/bin:${PATH}" \
+  "${node_root}/bin/corepack" install --global "pnpm@${pnpm_version}"
+COREPACK_HOME="${corepack_home}" \
+  COREPACK_ENABLE_NETWORK=0 \
+  PATH="${node_root}/bin:${PATH}" \
+  "${node_root}/bin/corepack" pnpm --version

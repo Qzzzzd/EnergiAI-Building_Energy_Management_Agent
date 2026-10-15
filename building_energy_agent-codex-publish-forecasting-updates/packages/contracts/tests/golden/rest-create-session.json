@@ -1,0 +1,6 @@
+{
+  "api_version": "1.0",
+  "title": "8月负荷分析",
+  "model": "gpt-5.6",
+  "reasoning_level": "high"
+}

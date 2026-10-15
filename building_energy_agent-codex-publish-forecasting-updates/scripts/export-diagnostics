@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+runtime_root="${BE_RUNTIME_ROOT:-${project_root}/.runtime}"
+output_root="${runtime_root}/diagnostics"
+cli="${project_root}/apps/server/dist/diagnostic-export-cli.js"
+case "$(uname -m)" in
+  aarch64 | arm64) node_platform="linux-arm64" ;;
+  x86_64 | amd64) node_platform="linux-x64" ;;
+  *)
+    printf '%s\n' "Unsupported architecture: $(uname -m)" >&2
+    exit 2
+    ;;
+esac
+node_bin="${project_root}/.runtime/toolchains/node-v24.19.0-${node_platform}/bin/node"
+
+if [[ ! -x "${node_bin}" || ! -f "${cli}" ]]; then
+  printf '%s\n' "Server build is missing. Run ./scripts/pnpm build during deployment preparation." >&2
+  exit 2
+fi
+
+mkdir -p -- "${output_root}"
+umask 077
+output="$(mktemp "${output_root}/diagnostic-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX.json")"
+BE_RUNTIME_ROOT="${runtime_root}" \
+  "${node_bin}" "${cli}" >"${output}"
+chmod 0600 -- "${output}"
+printf '%s\n' "${output#"${project_root}/"}"

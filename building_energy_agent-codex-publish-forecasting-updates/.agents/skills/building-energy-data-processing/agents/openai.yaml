@@ -1,0 +1,4 @@
+interface:
+  display_name: "建筑能源预测数据处理"
+  short_description: "从数据包生成保留真实缺口且通过防泄漏校验的建筑负荷预测处理包"
+  default_prompt: "Use $building-energy-data-processing to prepare a validated DatasetBundle for load forecasting."

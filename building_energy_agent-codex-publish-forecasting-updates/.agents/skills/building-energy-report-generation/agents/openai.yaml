@@ -1,0 +1,4 @@
+interface:
+  display_name: "建筑能源报表生成"
+  short_description: "根据已验证结果生成有逐章节解读的建筑能源 HTML/PDF 专业报告"
+  default_prompt: "使用 $building-energy-report-generation 先根据已验证质量与负荷预测 Artifact 生成证据约束的章节分析和逐图表/表格解读，再输出可读的 HTML/PDF 报告。"

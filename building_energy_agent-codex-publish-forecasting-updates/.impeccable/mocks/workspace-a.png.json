@@ -1,0 +1,10 @@
+{
+  "prompt_file": "workspace-a.prompt.txt",
+  "approved": true,
+  "approval_basis": "The user delegated full implementation and the approved OpenSpec fixes the Operate mode, three-column structure, palette and load-trajectory signature. Variant A best preserves chat as the primary workspace.",
+  "literalization_limits": [
+    "Do not copy generated metrics, file names, model names or commands.",
+    "Render only server-supplied facts and supported artifact types.",
+    "Use semantic React, CSS and SVG rather than rasterizing the interface."
+  ]
+}

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd -- "${project_root}"
+
+host="${BE_HOST:-127.0.0.1}"
+port="${BE_PORT:-8787}"
+health_url="http://${host}:${port}/api/v1/health"
+log_file="${BE_SERVICE_LOG:-${project_root}/.runtime/building-energy-server-start.log}"
+unit_name="${BE_SYSTEMD_UNIT:-building-energy-codex.service}"
+
+health_check() {
+  curl --noproxy '*' -fsS --max-time 2 "${health_url}" >/dev/null 2>&1
+}
+
+if health_check; then
+  printf '%s\n' "服务已在运行：${health_url}"
+  exit 0
+fi
+
+mkdir -p "$(dirname -- "${log_file}")"
+export BE_HOST="${host}"
+export BE_CODEX_APPARMOR_PROFILE="${BE_CODEX_APPARMOR_PROFILE:-linux-sandbox}"
+
+proxy_environment_keys=(
+  HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY
+  http_proxy https_proxy all_proxy no_proxy
+)
+
+import_proxy_environment() {
+  local keys=()
+  local key
+  for key in "${proxy_environment_keys[@]}"; do
+    if [[ -n "${!key:-}" ]]; then
+      keys+=("${key}")
+    fi
+  done
+  if ((${#keys[@]} > 0)); then
+    systemctl --user import-environment "${keys[@]}" >/dev/null
+  fi
+}
+
+if command -v systemd-run >/dev/null 2>&1 && systemctl --user is-system-running >/dev/null 2>&1; then
+  import_proxy_environment
+  systemctl --user reset-failed "${unit_name}" >/dev/null 2>&1 || true
+  systemd-run --user --unit="${unit_name}" --collect \
+    --property=Restart=on-failure \
+    --working-directory="${project_root}" \
+    --setenv="BE_HOST=${host}" \
+    --setenv="BE_PORT=${port}" \
+    --setenv="BE_CODEX_APPARMOR_PROFILE=${BE_CODEX_APPARMOR_PROFILE}" \
+    "${project_root}/scripts/start" >/dev/null
+  server_pid=""
+else
+  nohup setsid ./scripts/start >>"${log_file}" 2>&1 </dev/null &
+  server_pid="$!"
+fi
+
+deadline=$((SECONDS + 60))
+until health_check; do
+  if [[ -n "${server_pid}" ]] && ! kill -0 "${server_pid}" 2>/dev/null; then
+    printf '%s\n' "服务启动失败，最近日志：" >&2
+    tail -40 "${log_file}" >&2 || true
+    exit 1
+  fi
+  if [[ -z "${server_pid}" ]] && ! systemctl --user is-active --quiet "${unit_name}"; then
+    printf '%s\n' "服务启动失败，最近日志：" >&2
+    journalctl --user -u "${unit_name}" -n 40 --no-pager >&2 || true
+    exit 1
+  fi
+  if (( SECONDS >= deadline )); then
+    printf '%s\n' "服务在 60 秒内未通过健康检查：${health_url}" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+printf '%s\n' "服务已就绪：${health_url}"

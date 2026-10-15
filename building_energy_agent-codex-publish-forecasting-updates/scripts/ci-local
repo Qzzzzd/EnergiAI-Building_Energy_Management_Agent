@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${project_root}"
+
+./scripts/pnpm format:check
+./scripts/pnpm lint
+./scripts/pnpm typecheck
+./scripts/pnpm test
+./scripts/test-skills
+./scripts/pnpm contracts:check
+./scripts/pnpm build
+./scripts/pnpm openspec:validate
+
+ci_index="$(mktemp "${project_root}/.runtime/ci-index.XXXXXX")"
+trap 'rm -f -- "${ci_index}"' EXIT
+rm -f -- "${ci_index}"
+GIT_INDEX_FILE="${ci_index}" git read-tree --empty
+GIT_INDEX_FILE="${ci_index}" git add --intent-to-add -- .
+GIT_INDEX_FILE="${ci_index}" git diff --check

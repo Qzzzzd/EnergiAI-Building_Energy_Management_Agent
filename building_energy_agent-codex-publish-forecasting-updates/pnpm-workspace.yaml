@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@fission-ai/openspec': true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - lucide-react@1.31.0

@@ -1,0 +1,23 @@
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+.runtime/
+.agents/skills/building-energy-dynamic-proof/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+
+playwright-report/
+test-results/
+*.log
+.DS_Store
+
+# Engramory live memory store (plain text, machine-local)
+/.engramory-memory/

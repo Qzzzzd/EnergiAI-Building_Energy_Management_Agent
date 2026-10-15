@@ -1,0 +1,4 @@
+interface:
+  display_name: "动态 Skill 架构证明"
+  short_description: "生成严格协议的测试 Artifact，验证无后端分支扩展"
+  default_prompt: "Use $building-energy-dynamic-proof to produce the dynamic Skill acceptance Artifact."

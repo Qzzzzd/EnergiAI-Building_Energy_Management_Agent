@@ -1,0 +1,40 @@
+{
+  "name": "building-energy-codex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": "24.19.0",
+    "pnpm": "11.21.0"
+  },
+  "scripts": {
+    "dev": "./scripts/dev",
+    "start": "./scripts/start",
+    "doctor": "./scripts/doctor",
+    "smoke:codex": "pnpm --filter @building-energy/server smoke:codex",
+    "diagnostics:export": "./scripts/export-diagnostics",
+    "install:skills": "./scripts/install-skills",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:skills": "./scripts/test-skills",
+    "verify:skill-workflows": "./scripts/verify-skill-workflows",
+    "build": "pnpm -r --if-present build",
+    "contracts:generate": "pnpm --filter @building-energy/contracts generate",
+    "contracts:check": "pnpm --filter @building-energy/contracts check:generated",
+    "openspec:validate": "openspec validate create-building-energy-codex-agent --strict",
+    "ci:local": "./scripts/ci-local"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.8.0",
+    "@types/node": "26.2.0",
+    "eslint": "10.8.1",
+    "prettier": "3.9.6",
+    "tsx": "4.23.11",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

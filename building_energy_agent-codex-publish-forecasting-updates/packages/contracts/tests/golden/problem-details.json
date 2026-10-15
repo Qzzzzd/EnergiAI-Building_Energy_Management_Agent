@@ -1,0 +1,16 @@
+{
+  "type": "https://building-energy.local/problems/resource-not-found",
+  "title": "资源不存在",
+  "status": 404,
+  "detail": "请求的资源不存在或不属于当前会话。",
+  "instance": "/api/v1/sessions/session-001",
+  "code": "RESOURCE_NOT_FOUND",
+  "correlation_id": "corr-001",
+  "recovery_actions": [
+    {
+      "code": "RETURN_TO_SESSION_LIST",
+      "label": "返回会话列表",
+      "href": "/api/v1/sessions"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+python_bin="${project_root}/.runtime/skill-envs/building-energy-data-parsing/bin/python"
+if [[ ! -x "${python_bin}" ]]; then
+  printf '%s\n' "DEPENDENCY_MISSING: run ./scripts/install-skills explicitly." >&2
+  exit 2
+fi
+
+exec "${python_bin}" "${project_root}/scripts/verify_skill_workflows.py" "$@"

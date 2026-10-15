@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "building-energy-agent"
+version = "0.7.0"
+description = "V0.7 building energy data parsing and processing contracts"
+readme = "README.md"
+requires-python = ">=3.12,<4"
+dependencies = [
+    "pydantic>=2.8,<3",
+    "openpyxl>=3.1,<4",
+    "pyarrow>=17,<21",
+    "matplotlib>=3.9,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pandas>=2.2,<3",
+    "pytest>=8,<9",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = [
+    "integration: cross-Skill artifact compatibility tests",
+]

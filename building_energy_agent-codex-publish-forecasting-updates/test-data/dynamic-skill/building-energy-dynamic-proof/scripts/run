@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+session_id=""
+turn_id=""
+workspace_root=""
+while (($#)); do
+  case "$1" in
+    --session-id) session_id="${2:-}"; shift 2 ;;
+    --turn-id) turn_id="${2:-}"; shift 2 ;;
+    --workspace-root) workspace_root="${2:-}"; shift 2 ;;
+    *) printf '%s\n' "Unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+id_pattern='^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
+if [[ ! "${session_id}" =~ ${id_pattern} || ! "${turn_id}" =~ ${id_pattern} ]]; then
+  printf '%s\n' "Valid --session-id and --turn-id are required." >&2
+  exit 2
+fi
+if [[ -z "${workspace_root}" || ! -d "${workspace_root}" ]]; then
+  printf '%s\n' "A session --workspace-root is required." >&2
+  exit 2
+fi
+
+job_id="dynamic-proof-${turn_id}"
+artifact_id="dynamic-proof-${turn_id}"
+artifact_dir="${workspace_root}/artifacts/${artifact_id}"
+manifest_relative_path="${artifact_id}/manifest.json"
+result_relative_path="${artifact_id}/result.json"
+timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+mkdir -p -- "${artifact_dir}"
+printf '%s\n' '{"capability":"dynamic-skill","result":"verified"}' >"${artifact_dir}/result.json"
+size_bytes="$(wc -c <"${artifact_dir}/result.json" | tr -d ' ')"
+sha256="$(sha256sum "${artifact_dir}/result.json" | cut -d ' ' -f 1)"
+manifest_url="/api/v1/sessions/${session_id}/artifacts?turn_id=${turn_id}"
+
+printf '%s\n' "{\"schema_version\":\"1.0\",\"artifact_id\":\"${artifact_id}\",\"artifact_type\":\"dynamic-skill-proof\",\"producer\":{\"skill_name\":\"building-energy-dynamic-proof\",\"job_id\":\"${job_id}\"},\"source_ids\":[],\"status\":\"succeeded\",\"files\":[{\"relative_path\":\"${result_relative_path}\",\"media_type\":\"application/json\",\"size_bytes\":${size_bytes},\"sha256\":\"${sha256}\",\"role\":\"proof\"}],\"summary\":{\"conclusion\":\"Dynamic Skill executed without a backend name branch.\",\"capability\":\"dynamic-skill\"},\"warnings\":[]}" >"${artifact_dir}/manifest.json"
+
+printf 'BE_SKILL_EVENT {"protocol_version":"1.0","event_id":"1","skill_name":"building-energy-dynamic-proof","job_id":"%s","stage":"start","timestamp":"%s","warnings":[],"kind":"started","payload":{"session_id":"%s","turn_id":"%s"}}\n' "${job_id}" "${timestamp}" "${session_id}" "${turn_id}"
+printf 'BE_SKILL_EVENT {"protocol_version":"1.0","event_id":"2","skill_name":"building-energy-dynamic-proof","job_id":"%s","stage":"write-proof","timestamp":"%s","warnings":[],"kind":"progress","progress":{"completed":1,"total":1,"unit":"artifact"},"payload":{"session_id":"%s","turn_id":"%s"}}\n' "${job_id}" "${timestamp}" "${session_id}" "${turn_id}"
+printf 'BE_SKILL_EVENT {"protocol_version":"1.0","event_id":"3","skill_name":"building-energy-dynamic-proof","job_id":"%s","stage":"artifact","timestamp":"%s","warnings":[],"kind":"artifact","artifact_id":"%s","manifest_relative_path":"%s","payload":{"session_id":"%s","turn_id":"%s"}}\n' "${job_id}" "${timestamp}" "${artifact_id}" "${manifest_relative_path}" "${session_id}" "${turn_id}"
+printf 'BE_SKILL_EVENT {"protocol_version":"1.0","event_id":"4","skill_name":"building-energy-dynamic-proof","job_id":"%s","stage":"completed","timestamp":"%s","warnings":[],"kind":"completed","outcome":"succeeded","result_refs":[{"artifact_id":"%s","artifact_type":"dynamic-skill-proof","status":"succeeded","manifest_url":"%s"}],"payload":{"session_id":"%s","turn_id":"%s"}}\n' "${job_id}" "${timestamp}" "${artifact_id}" "${manifest_url}" "${session_id}" "${turn_id}"

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "building-energy-data-quality-assessment"
+version = "0.7.0"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "pyarrow>=17,<21",
+  "pydantic>=2.8,<3",
+  "scipy>=1.14,<2",
+  "matplotlib>=3.9,<4",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3,<9"]
+
+[tool.setuptools]
+packages = ["data_quality_assessment"]
+package-dir = {data_quality_assessment = "scripts/data_quality_assessment"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

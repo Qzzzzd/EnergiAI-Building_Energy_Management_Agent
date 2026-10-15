@@ -1,0 +1,7 @@
+{
+  "source_bundle_id": "cli-demo",
+  "assessment_context": {
+    "task_type": "load_forecasting",
+    "target_point_id": "target-load"
+  }
+}

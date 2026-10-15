@@ -1,0 +1,4 @@
+interface:
+  display_name: "建筑能源数据质量评估"
+  short_description: "对建筑能源数据包执行可恢复的六维质量评估并生成可追溯中文报告"
+  default_prompt: "Use $building-energy-data-quality to assess a validated DatasetBundle and produce a traceable quality report."

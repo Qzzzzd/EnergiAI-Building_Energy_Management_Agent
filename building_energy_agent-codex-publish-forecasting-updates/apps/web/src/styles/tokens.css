@@ -1,0 +1,58 @@
+@layer tokens {
+  :root {
+    color-scheme: light;
+    --canvas: #fbfaf5;
+    --rail: #f7f5ee;
+    --rail-hover: #eef1e9;
+    --surface: #fffdf8;
+    --surface-soft: var(--canvas);
+    --surface-muted: #f5f3eb;
+    --surface-strong: #efede4;
+    --surface-primary: #f1f4ed;
+    --selection: #e7ece2;
+    --ink: #2a2b27;
+    --ink-secondary: #50544b;
+    --ink-tertiary: #73776d;
+    --primary: #587548;
+    --primary-deep: #3f5c32;
+    --primary-soft: #e9eee4;
+    --success: #587548;
+    --success-soft: #edf2e9;
+    --attention: #c45109;
+    --attention-soft: #fff0e2;
+    --danger: #ba1a1a;
+    --danger-soft: #ffdad6;
+    --line: #e3dfd3;
+    --line-strong: #d5cfbf;
+    --line-primary: #d7dfd0;
+    --focus: #587548;
+    --shadow-raised: 0 8px 24px rgb(48 54 42 / 0.13);
+    --font-body: Inter, 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+    --font-stage: 'IBM Plex Sans Condensed', 'Noto Sans SC Variable', sans-serif;
+    --font-data: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --font-display: 'IBM Plex Sans Condensed', 'Noto Sans SC Variable', sans-serif;
+    --radius-control: 4px;
+    --radius: 4px;
+    --radius-panel: 7px;
+    --rail-width: 284px;
+    --inspector-width: 350px;
+    --content-width: 900px;
+    --header-height: 56px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --surface-raised: var(--surface-strong);
+    --ink-soft: var(--ink-secondary);
+    --ink-faint: var(--ink-tertiary);
+    --warning: var(--attention);
+    --warning-soft: var(--attention-soft);
+    --primary-wash: var(--primary-soft);
+    --nav-width: var(--rail-width);
+    --context-width: var(--inspector-width);
+  }
+}

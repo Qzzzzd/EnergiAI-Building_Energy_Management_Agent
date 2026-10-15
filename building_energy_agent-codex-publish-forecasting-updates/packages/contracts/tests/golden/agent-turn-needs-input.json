@@ -1,0 +1,20 @@
+{
+  "status": "needs_input",
+  "message": "继续分析前需要确认两个相互独立的参数。",
+  "questions": [
+    {
+      "id": "target-point",
+      "question": "请选择预测目标点位",
+      "options": ["meter-a", "meter-b"],
+      "allow_free_text": true,
+      "required": true
+    },
+    {
+      "id": "source-timezone",
+      "question": "请选择源数据时区",
+      "options": ["Asia/Shanghai", "UTC"],
+      "allow_free_text": false,
+      "required": true
+    }
+  ]
+}

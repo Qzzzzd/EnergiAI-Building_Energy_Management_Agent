@@ -1,0 +1,4 @@
+interface:
+  display_name: "建筑能源负荷预测"
+  short_description: "基于处理数据包训练、评价并复用可追溯的建筑负荷预测模型与结果"
+  default_prompt: "Use $building-energy-load-forecasting to evaluate or forecast load from a validated ProcessingBundle."

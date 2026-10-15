@@ -1,0 +1,8 @@
+.agents/skills/
+.impeccable/
+apps/web/.impeccable/
+openspec/
+.runtime/
+test-data/
+test-results/
+playwright-report/

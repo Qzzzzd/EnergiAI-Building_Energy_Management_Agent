@@ -1,0 +1,33 @@
+# Runtime data and generated artifacts
+data/
+artifacts/
+.skill-artifacts/
+models/
+logs/
+
+# Secrets and local agent state
+.env
+auth.json
+.codex/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.vs/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf '%s\n' \
+    'usage: skill-run start --skill <name> --request <file> --session-id <id> --turn-id <id> --workspace-root .' \
+    '       skill-run resume --skill <name> --job-id <id> --answers <file> --workspace-root .'
+}
+
+action="${1:-}"
+if [[ "${action}" == "--help" || "${action}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+if [[ "${action}" != "start" && "${action}" != "resume" ]]; then
+  usage >&2
+  exit 2
+fi
+shift
+
+skill_name=""
+arguments=()
+while (($#)); do
+  if [[ "$1" == "--skill" ]]; then
+    skill_name="${2:-}"
+    shift 2
+    continue
+  fi
+  arguments+=("$1")
+  shift
+done
+if [[ ! "${skill_name}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+  printf '%s\n' 'invalid Skill name' >&2
+  exit 2
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd -- "${script_dir}/.." && pwd)"
+python="${project_root}/.runtime/skill-envs/${skill_name}/bin/python"
+skillctl="${project_root}/.agents/skills/${skill_name}/scripts/skillctl"
+if [[ ! -x "${python}" || ! -r "${skillctl}" ]]; then
+  printf 'DEPENDENCY_MISSING: run scripts/install-skills %s explicitly\n' "${skill_name}" >&2
+  exit 2
+fi
+
+matplotlib_config="${PWD}/.be-skill-cache/matplotlib"
+mkdir -p -- "${matplotlib_config}"
+export BE_SKILL_FOREGROUND=1
+export MPLCONFIGDIR="${matplotlib_config}"
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export ARROW_NUM_THREADS=1
+exec "${python}" "${skillctl}" "${action}" "${arguments[@]}"

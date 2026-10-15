@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd -- "${project_root}"
+
+if [[ ! -f "apps/server/dist/index.js" || ! -f "apps/web/dist/index.html" ]]; then
+  printf '%s\n' "Production build is missing. Run ./scripts/pnpm build during deployment preparation." >&2
+  exit 2
+fi
+
+exec ./scripts/pnpm --filter @building-energy/server run start

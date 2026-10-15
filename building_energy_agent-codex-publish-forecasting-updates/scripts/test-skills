@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+skills=(
+  building-energy-data-parsing
+  building-energy-data-processing
+  building-energy-data-quality
+  building-energy-load-forecasting
+  building-energy-report-generation
+)
+
+export PYTHONDONTWRITEBYTECODE=1
+for skill in "${skills[@]}"; do
+  skill_root="${project_root}/.agents/skills/${skill}"
+  python_bin="${project_root}/.runtime/skill-envs/${skill}/bin/python"
+  if [[ ! -x "${python_bin}" ]]; then
+    printf '%s\n' "DEPENDENCY_MISSING: ${skill}; run ./scripts/install-skills explicitly." >&2
+    exit 2
+  fi
+  printf '%s\n' "Testing ${skill}"
+  (
+    cd -- "${skill_root}"
+    "${python_bin}" -m pytest tests -q -p no:cacheprovider
+  )
+done
+
+"${project_root}/.runtime/skill-envs/building-energy-data-parsing/bin/python" \
+  -m pytest "${project_root}/tests/skills" -q -p no:cacheprovider
+"${project_root}/scripts/skill-doctor"

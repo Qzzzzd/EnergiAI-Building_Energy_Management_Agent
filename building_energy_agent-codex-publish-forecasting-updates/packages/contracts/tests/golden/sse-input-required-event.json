@@ -1,0 +1,20 @@
+{
+  "protocol_version": "1.0",
+  "event_id": "42",
+  "session_id": "session-001",
+  "turn_id": "turn-001",
+  "occurred_at": "2026-08-10T00:00:00+08:00",
+  "type": "input.required",
+  "data": {
+    "question_set_id": "questions-001",
+    "questions": [
+      {
+        "id": "timezone",
+        "question": "请选择源数据时区",
+        "options": ["Asia/Shanghai", "UTC"],
+        "allow_free_text": true,
+        "required": true
+      }
+    ]
+  }
+}

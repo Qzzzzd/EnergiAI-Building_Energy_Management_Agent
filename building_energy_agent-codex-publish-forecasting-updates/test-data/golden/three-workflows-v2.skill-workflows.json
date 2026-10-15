@@ -1,0 +1,477 @@
+{
+  "fixture": {
+    "name": "three-workflows-v2.xlsx",
+    "sha256": "dfce4a69485f64cc8348fffa6c2e3f1a6a7fceca4e01e2dcad48b697b6ba9298",
+    "size_bytes": 2951705
+  },
+  "metrics": {
+    "forecast_predict": {
+      "evaluation_count": 0,
+      "evaluation_coverage": 0.0,
+      "minimum_raw_prediction": 5273.840228964293,
+      "missing_label_count": 1440,
+      "negative_raw_count": 0,
+      "negative_raw_ratio": 0.0,
+      "prediction_count": 1440
+    },
+    "forecast_train": {
+      "best_iteration": null,
+      "candidate_leaderboard": [
+        {
+          "config": {
+            "l2_regularization": 0.02,
+            "learning_rate": 0.035,
+            "max_iter": 400,
+            "max_leaf_nodes": 31
+          },
+          "model_type": "hist_gradient_boosting",
+          "selected": true,
+          "validation": {
+            "actual_mean": 6716.466669146826,
+            "count": 5760,
+            "cvrmse_percent": 17.568677917823962,
+            "evaluation_count": 5760,
+            "evaluation_coverage": 1.0,
+            "mae": 830.7648932703662,
+            "minimum_raw_prediction": 467.45345082571106,
+            "missing_label_count": 0,
+            "negative_raw_count": 0,
+            "negative_raw_ratio": 0.0,
+            "prediction_count": 5760,
+            "r2": 0.19966067176547153,
+            "rmse": 1179.9943965604048,
+            "status": "available"
+          }
+        },
+        {
+          "config": {
+            "best_iteration": 31,
+            "parameters": {
+              "bagging_fraction": 0.8,
+              "bagging_freq": 5,
+              "bagging_seed": 42,
+              "boosting_type": "gbdt",
+              "data_random_seed": 42,
+              "deterministic": true,
+              "device_type": "cpu",
+              "feature_fraction": 0.8,
+              "feature_fraction_seed": 42,
+              "force_col_wise": true,
+              "lambda_l1": 0.1,
+              "lambda_l2": 0.1,
+              "learning_rate": 0.05,
+              "metric": "rmse",
+              "min_data_in_leaf": 20,
+              "num_leaves": 63,
+              "num_threads": 1,
+              "objective": "regression",
+              "seed": 42,
+              "verbosity": -1
+            }
+          },
+          "model_type": "lightgbm",
+          "selected": false,
+          "validation": {
+            "actual_mean": 6716.466669146826,
+            "count": 5760,
+            "cvrmse_percent": 17.652026668097427,
+            "evaluation_count": 5760,
+            "evaluation_coverage": 1.0,
+            "mae": 893.4954011332547,
+            "minimum_raw_prediction": 1296.8958139548347,
+            "missing_label_count": 0,
+            "negative_raw_count": 0,
+            "negative_raw_ratio": 0.0,
+            "prediction_count": 5760,
+            "r2": 0.19204877081579685,
+            "rmse": 1185.5924875916726,
+            "status": "available"
+          }
+        },
+        {
+          "config": {
+            "alpha": 1.0
+          },
+          "model_type": "ridge",
+          "selected": false,
+          "validation": {
+            "actual_mean": 6716.466669146826,
+            "count": 5760,
+            "cvrmse_percent": 25.52205744984823,
+            "evaluation_count": 5760,
+            "evaluation_coverage": 1.0,
+            "mae": 1529.5750200043658,
+            "minimum_raw_prediction": 4335.420384714189,
+            "missing_label_count": 0,
+            "negative_raw_count": 0,
+            "negative_raw_ratio": 0.0,
+            "prediction_count": 5760,
+            "r2": -0.6889910959959051,
+            "rmse": 1714.1804818995606,
+            "status": "available"
+          }
+        }
+      ],
+      "primary_metric": "cvrmse_percent",
+      "selected_model_type": "hist_gradient_boosting",
+      "test": {
+        "actual_mean": 7854.494479166668,
+        "count": 2880,
+        "cvrmse_percent": 39.92777383634293,
+        "evaluation_count": 2880,
+        "evaluation_coverage": 1.0,
+        "mae": 2454.187123694242,
+        "minimum_raw_prediction": 662.8089185467718,
+        "missing_label_count": 0,
+        "negative_raw_count": 0,
+        "negative_raw_ratio": 0.0,
+        "prediction_count": 2880,
+        "r2": -4.024254135980985,
+        "rmse": 3136.1247916297084,
+        "status": "available"
+      },
+      "test_by_horizon": [
+        {
+          "actual_mean": 8940.241256830603,
+          "count": 122,
+          "cvrmse_percent": 18.338447816512037,
+          "end_minute": 60,
+          "evaluation_count": 122,
+          "evaluation_coverage": 1.0,
+          "mae": 1355.870784021525,
+          "minimum_raw_prediction": 6548.159954325806,
+          "missing_label_count": 0,
+          "negative_raw_count": 0,
+          "negative_raw_ratio": 0.0,
+          "prediction_count": 122,
+          "r2": -163.11970491998053,
+          "rmse": 1639.5014775541601,
+          "start_minute": 0,
+          "status": "available"
+        },
+        {
+          "actual_mean": 8411.480555555556,
+          "count": 600,
+          "cvrmse_percent": 21.334185072159986,
+          "end_minute": 360,
+          "evaluation_count": 600,
+          "evaluation_coverage": 1.0,
+          "mae": 1563.6592305245997,
+          "minimum_raw_prediction": 6260.326694324151,
+          "missing_label_count": 0,
+          "negative_raw_count": 0,
+          "negative_raw_ratio": 0.0,
+          "prediction_count": 600,
+          "r2": -3.749290360820667,
+          "rmse": 1794.5208290309733,
+          "start_minute": 60,
+          "status": "available"
+        },
+        {
+          "actual_mean": 7707.58125,
+          "count": 720,
+          "cvrmse_percent": 27.113852620489244,
+          "end_minute": 720,
+          "evaluation_count": 720,
+          "evaluation_coverage": 1.0,
+          "mae": 2002.5555104902369,
+          "minimum_raw_prediction": 6137.402544171533,
+          "missing_label_count": 0,
+          "negative_raw_count": 0,
+          "negative_raw_ratio": 0.0,
+          "prediction_count": 720,
+          "r2": -1.8547477168616218,
+          "rmse": 2089.8222207294625,
+          "start_minute": 360,
+          "status": "available"
+        },
+        {
+          "actual_mean": 7603.538131664349,
+          "count": 1438,
+          "cvrmse_percent": 52.50752207449718,
+          "end_minute": 1439,
+          "evaluation_count": 1438,
+          "evaluation_coverage": 1.0,
+          "mae": 3145.067576301154,
+          "minimum_raw_prediction": 662.8089185467718,
+          "missing_label_count": 0,
+          "negative_raw_count": 0,
+          "negative_raw_ratio": 0.0,
+          "prediction_count": 1438,
+          "r2": -5.209332324595586,
+          "rmse": 3992.429462926468,
+          "start_minute": 720,
+          "status": "available"
+        }
+      ],
+      "validation": {
+        "actual_mean": 6716.466669146826,
+        "count": 5760,
+        "cvrmse_percent": 17.568677917823962,
+        "evaluation_count": 5760,
+        "evaluation_coverage": 1.0,
+        "mae": 830.7648932703662,
+        "minimum_raw_prediction": 467.45345082571106,
+        "missing_label_count": 0,
+        "negative_raw_count": 0,
+        "negative_raw_ratio": 0.0,
+        "prediction_count": 5760,
+        "r2": 0.19966067176547153,
+        "rmse": 1179.9943965604048,
+        "status": "available"
+      }
+    },
+    "parse": {
+      "failed_file_count": 0,
+      "failed_worksheet_count": 0,
+      "main_warnings": [
+        "point '2f8355f914d54db5876374485e6e462b|2008000' has visibly irregular sampling (3477/8536 positive intervals)"
+      ],
+      "needs_input": false,
+      "point_count": 9,
+      "record_count": 216131,
+      "regular_table_count": 0,
+      "successful_file_count": 1,
+      "successful_worksheet_count": 9,
+      "time_range": {
+        "time_end": "2025-06-20T15:59:00+00:00",
+        "time_start": "2025-05-31T16:00:00+00:00"
+      },
+      "timeseries_table_count": 9
+    },
+    "processing_backtest": {
+      "feature_rule_version": "building-energy-history-v2",
+      "forecast_index_row_count": 27360,
+      "horizon_minutes": 1440,
+      "label_row_count": 27360,
+      "mode": "backtest",
+      "source_bundle_id": "dataset-0cbac71b33471cd1770c-xlsx-two-header-v1",
+      "source_target_point_id": "HE1.C|1226000",
+      "split_sample_counts": {
+        "test": 2,
+        "train": 13,
+        "validation": 4
+      },
+      "warning_count": 0
+    },
+    "processing_future": {
+      "feature_rule_version": "building-energy-history-v2",
+      "forecast_end": "2025-06-21T15:59:00+00:00",
+      "forecast_index_row_count": 1440,
+      "forecast_start": "2025-06-20T16:00:00+00:00",
+      "horizon_minutes": 1440,
+      "mode": "future",
+      "source_bundle_id": "dataset-0cbac71b33471cd1770c-xlsx-two-header-v1",
+      "source_target_point_id": "HE1.C|1226000",
+      "warning_count": 0
+    },
+    "quality": {
+      "dimensions": {
+        "DQ1": {
+          "id": "DQ1",
+          "score": 99.9733,
+          "status": "available",
+          "summary": "加权缺失率 0.01%。"
+        },
+        "DQ2": {
+          "id": "DQ2",
+          "score": 78.6102,
+          "status": "available",
+          "summary": "去重规则命中后的加权异常率 5.69%。"
+        },
+        "DQ3": {
+          "id": "DQ3",
+          "score": 91.6667,
+          "status": "available",
+          "summary": "预期特征组平均覆盖率 91.67%。"
+        },
+        "DQ4": {
+          "id": "DQ4",
+          "score": 17.5711,
+          "status": "available",
+          "summary": "值域覆盖 17.71%，时间尺度覆盖 17.24%。"
+        },
+        "DQ5": {
+          "id": "DQ5",
+          "score": 62.6414,
+          "status": "available",
+          "summary": "逻辑一致性 46.63%，时间一致性 100.00%。"
+        },
+        "DQ6": {
+          "id": "DQ6",
+          "score": 73.8253,
+          "status": "available",
+          "summary": "8 个变量参与信息熵评分。"
+        }
+      },
+      "effective_scope": {
+        "included_point_count": 8,
+        "included_point_ids": [
+          "26edea28b2ca478c953084d0264b240f|1002000",
+          "2f8355f914d54db5876374485e6e462b|1004000",
+          "2f8355f914d54db5876374485e6e462b|1005000",
+          "2f8355f914d54db5876374485e6e462b|2001000",
+          "HE1.C.IT201|1003000",
+          "HE1.C|1085000",
+          "HE1.C|1209000",
+          "HE1.C|1226000"
+        ],
+        "time_end": "2025-06-20T15:59:00+00:00",
+        "time_start": "2025-05-31T16:00:00+00:00"
+      },
+      "issues": [
+        {
+          "dimension": "DQ3",
+          "evidence": {
+            "count": 1,
+            "duration_hours": 0,
+            "point_ids": [
+              "free_cooling_mode"
+            ],
+            "ratio": 0.11111111
+          },
+          "recommended_action": "补充目标相关点位或确认语义映射。",
+          "severity": "critical",
+          "summary": "缺少 1 个预期语义角色。"
+        },
+        {
+          "dimension": "DQ2",
+          "evidence": {
+            "count": 7985,
+            "duration_hours": 0,
+            "point_ids": [
+              "chilled_supply_temperature",
+              "chiller_power",
+              "target"
+            ],
+            "ratio": 0.09241898
+          },
+          "recommended_action": "核对设备协议、物理边界和运行工况，保留原值并在处理层添加质量标记。",
+          "severity": "warning",
+          "summary": "ROBUST_IQR_OUTLIER 共命中 7985 条观测。"
+        },
+        {
+          "dimension": "DQ1",
+          "evidence": {
+            "count": 15,
+            "duration_hours": 0.0,
+            "point_ids": [
+              "chiller_state"
+            ],
+            "ratio": 6.677e-05
+          },
+          "recommended_action": "核对采集链路和整段取数缺口；不要伪造目标值。",
+          "severity": "info",
+          "summary": "存在空值或缺失时间戳，加权缺失率 0.01%。"
+        },
+        {
+          "dimension": "DQ2",
+          "evidence": {
+            "count": 1,
+            "duration_hours": 0,
+            "point_ids": [
+              "chiller_state"
+            ],
+            "ratio": 0.00017286
+          },
+          "recommended_action": "核对设备协议、物理边界和运行工况，保留原值并在处理层添加质量标记。",
+          "severity": "info",
+          "summary": "INVALID_ENUM 共命中 1 条观测。"
+        },
+        {
+          "dimension": "DQ2",
+          "evidence": {
+            "count": 2,
+            "duration_hours": 0,
+            "point_ids": [
+              "target"
+            ],
+            "ratio": 6.944e-05
+          },
+          "recommended_action": "核对设备协议、物理边界和运行工况，保留原值并在处理层添加质量标记。",
+          "severity": "info",
+          "summary": "OUT_OF_RANGE 共命中 2 条观测。"
+        }
+      ],
+      "overall_score": 75.8545
+    }
+  },
+  "native": {
+    "dataset": {
+      "stable_file_hashes": {},
+      "stable_manifest_sha256": "e6508f7cf15bcbde9fbdf0e99f04af6fd0235c89759a0820452373e0a91ec7de"
+    },
+    "evaluation": {
+      "stable_file_hashes": {
+        "candidate_leaderboard.json": "9e72d2a97d74910fb4c26099e601d61983da99c7d64e5d58b52ed21c71953d69",
+        "feature_importance.parquet": "df117c35dd1ca24d73cb5d315def61dc88d6494b177ebaefb47aba6466a09f78",
+        "figures/feature_importance_gain_top20.png": "153d7ebe811d7b966ff50b2061cb130a9a2dda77f3beaeae03fd87a7c3de6a15",
+        "figures/test_actual_vs_prediction.png": "5bcd5405b248c240aa0aa73f0ca1787784e5f156145b73e41d54f06597319866",
+        "figures/test_actual_vs_prediction_scatter.png": "244f5218c5a851768e5ce21ba9f5afc27d4a55d47c3ee03e2116fd9a6e8758d6",
+        "figures/test_residual_distribution.png": "6371f92ed8895f17adb1abaa27e8ff5cc4ec8bbb9a6848e53664a8e9e374f4ab",
+        "metrics.json": "20e74b88a62e1356e8933d186755689f072a4e25e3b3aec7678bcea5869036b2",
+        "predictions/test.parquet": "8604ee5b2679627a6bd103f13f4f220a30a56ce9d96c5f3626bcc035437a61e5",
+        "predictions/validation.parquet": "2345d2af41572dedad45c29f66ba61625439dbdeeacd96758564e3b1336bce0f",
+        "training_history.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+      },
+      "stable_manifest_sha256": "3946a607a9e4d885e0751ce652c863775868a06fb5cd00814e51c8df40ffcb00"
+    },
+    "forecast": {
+      "stable_file_hashes": {
+        "predictions.parquet": "419260cf7f5ced9cb42a07a8c770addd9e514642dbc4cd1a80a64627cebb311d"
+      },
+      "stable_manifest_sha256": "43534c0f75aa3141e6cfa28def676d636c82233e372043e394f449004251dee7"
+    },
+    "model": {
+      "stable_file_hashes": {
+        "categorical_mappings.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "feature_schema.json": "c648799aa520669f2f0f905cfae137dde3bf528e0ffef30d91be98673ea1f655",
+        "model.pkl": "3f0182b5cf335b630e325c998d9037ba8e518eb201cfc39fcabf1a48bec0d301",
+        "training_config.json": "b7be7284aff5268343344c9a70bd9af20279d887f0b29bc09c8efae0a14d749b"
+      },
+      "stable_manifest_sha256": "fccd474b1f394f4c075864f1473a74ebb4f2a04310622b303104577f2c4f4c3e"
+    },
+    "processing_backtest": {
+      "stable_file_hashes": {
+        "categorical_mappings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "data/processed_timeseries/target.parquet": "274a0673e1ee748c5723cab8ff1dfd853404863df1ccbce40aefb170fa7780a2",
+        "feature_catalog.parquet": "c4c1a28f1e8610432f1f869f1b53be74b92ad6c4bc51c05e1d460c6a8e251010",
+        "features/split=test/data.parquet": "b46a164e01ae365e6cc9deca6fef45c938314f0b016a0d0650ca284719a2ae8e",
+        "features/split=train/data.parquet": "ba33fe5d0f671ed3e26f64221b2f767274c1d4142dfa61b801927866d4ad5a55",
+        "features/split=validation/data.parquet": "3b331e0ad58005b1e2bf8c011dc323ff045b6a3f1618f7d5e993bae3d4e3987b",
+        "forecast_index/split=test/data.parquet": "a2ce6432b863b0d93a54bdcfd16a70f8b39178064857ee73386531fe79035134",
+        "forecast_index/split=train/data.parquet": "eba23bf7b5edd73ab11005b71accff2e6e2ec2ec6b220a6e4f66a48146dc4503",
+        "forecast_index/split=validation/data.parquet": "6c047155aec78a344e19efa285e1ff3fe332f379bb4cb8f64220b93e0ec604f0",
+        "labels/split=test/data.parquet": "da9c5d632c4f297776a2d4f8a56fa183d55a8380c1fd803e10ee16bf9bfa9bd2",
+        "labels/split=train/data.parquet": "e837bf62cee64741492afee7fd4e5e0d224111fec3ed6a188b884fe507dc324f",
+        "labels/split=validation/data.parquet": "266819a0d1386c5b6d316873a68bd1c98e9d00ffde558a74ed8cf26b808ea918",
+        "processing_report.json": "edbfa7eeb8d14ce4451c9e3d2138b9f854d528b39348f92070ccd00f61196c4e",
+        "split_manifest.json": "908e373ab50a54a0e68429915acfd4a7489dcb053caca7832c6e474677d6c0a8",
+        "target_metadata.json": "b7c65b5842ec1bb9645be894878bb8dfedb39c94e6f40003993e0f78ba6d09f7"
+      },
+      "stable_manifest_sha256": "f3888bd9330e47b4a800a8a01eb4c160186278e4b3d270298742ec6905d736ab"
+    },
+    "processing_future": {
+      "stable_file_hashes": {
+        "categorical_mappings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "data/processed_timeseries/target.parquet": "274a0673e1ee748c5723cab8ff1dfd853404863df1ccbce40aefb170fa7780a2",
+        "feature_catalog.parquet": "c4c1a28f1e8610432f1f869f1b53be74b92ad6c4bc51c05e1d460c6a8e251010",
+        "features/split=future/data.parquet": "30c14d1fc173e357e2353c90651b52e17ef914e18eb2b4ef05bc7e3ba0bb2c2b",
+        "forecast_index/split=future/data.parquet": "2fbf7b93eaf4fbb08307b92d817c08168fa17aea935844942afae523a7b92730",
+        "processing_report.json": "20795ebb11a3d3ab7cec163415198d15b442541ce79e471cb49fb3c7df4ffd51",
+        "split_manifest.json": "d98ba7a1c582a49804d959f4bc4a712475f15bab8e5a91dbb319a25d2391f3b5",
+        "target_metadata.json": "b7c65b5842ec1bb9645be894878bb8dfedb39c94e6f40003993e0f78ba6d09f7"
+      },
+      "stable_manifest_sha256": "690ed0e176e86aa6bb2dd71be22e57730790e4a3fbf6a4ffdbfc910d525ef0c4"
+    },
+    "quality": {
+      "stable_file_hashes": {
+        "quality_profile.json": "c4bd6f648301cb909fa902fe8546a797f3f96cc2be1d3697757574a506203859",
+        "quality_report.md": "f35ebcec498f725ce0b70d23b650015daa4083a095ec6a2f9957a51eada95259",
+        "quality_result.json": "679f2541d158b5e9aeefa6c7540f60f13d8ff1dece3f603e2b05d6b0bf65f8a6"
+      },
+      "stable_manifest_sha256": "0b0c5008a459d895731234ed5a34a0557ad62cf5a8dc2bbedb068ef162a7fde2"
+    }
+  },
+  "target_point_id": "HE1.C|1226000"
+}

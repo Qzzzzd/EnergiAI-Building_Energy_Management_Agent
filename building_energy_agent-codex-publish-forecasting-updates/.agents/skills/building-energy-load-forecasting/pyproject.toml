@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "building-energy-load-forecasting"
+version = "0.7.0"
+requires-python = ">=3.12"
+dependencies = [
+  "lightgbm>=4.5,<5",
+  "matplotlib>=3.9,<4",
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "psutil>=6,<8",
+  "pyarrow>=17,<21",
+  "scikit-learn>=1.5,<2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3,<9"]
+
+[tool.setuptools]
+packages = ["load_forecasting"]
+package-dir = {load_forecasting = "scripts/load_forecasting"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

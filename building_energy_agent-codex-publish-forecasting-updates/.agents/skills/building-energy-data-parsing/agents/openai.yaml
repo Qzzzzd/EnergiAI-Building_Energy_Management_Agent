@@ -1,0 +1,4 @@
+interface:
+  display_name: "建筑能源数据解析"
+  short_description: "安全解析 XLSX、XLSM 和确定性 CSV 为数据包"
+  default_prompt: "Use $building-energy-data-parsing to parse the uploaded source into a validated DatasetBundle."

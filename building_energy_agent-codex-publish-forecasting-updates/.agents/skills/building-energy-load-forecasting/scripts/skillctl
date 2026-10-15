@@ -1,0 +1,754 @@
+#!/usr/bin/env python3
+"""Common persistent lifecycle entrypoint for building-energy compute Skills."""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+import importlib
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+import uuid
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Callable, Iterator
+from urllib.parse import quote
+
+
+PROTOCOL_VERSION = "1.0"
+PREFIX = "BE_SKILL_EVENT "
+JOB_ID_PATTERN = re.compile(r"^job-[0-9a-f]{32}$")
+OPAQUE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+TERMINAL = {"succeeded", "partial", "failed", "cancelled", "interrupted"}
+_CANCELLATION_REQUESTED = False
+_PROBLEM_CODES = {
+    "VALIDATION_ERROR",
+    "UNSUPPORTED_PROTOCOL_VERSION",
+    "INCOMPATIBLE_PROTOCOL_VERSION",
+    "RESOURCE_NOT_FOUND",
+    "RESOURCE_CONFLICT",
+    "IDEMPOTENCY_CONFLICT",
+    "SESSION_BUSY",
+    "SESSION_STATE_INVALID",
+    "MODEL_NOT_ALLOWED",
+    "MODEL_UNAVAILABLE",
+    "MODEL_LOCKED",
+    "UPLOAD_LIMIT_EXCEEDED",
+    "UNSUPPORTED_MEDIA_TYPE",
+    "SOURCE_REFERENCE_INVALID",
+    "ARTIFACT_REFERENCE_INVALID",
+    "ARTIFACT_INTEGRITY_FAILED",
+    "SKILL_PROTOCOL_ERROR",
+    "SKILL_ENV_NOT_READY",
+    "DEPENDENCY_MISSING",
+    "UNAUTHENTICATED",
+    "CANCEL_FAILED",
+    "TURN_FAILED",
+    "TURN_INTERRUPTED",
+    "INTERNAL_ERROR",
+}
+
+
+class LifecycleError(RuntimeError):
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
+class WorkerCancelled(RuntimeError):
+    pass
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _skill_name() -> str:
+    return Path(__file__).resolve().parents[1].name
+
+
+def _json_read(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        value = json.load(handle)
+    if not isinstance(value, dict):
+        raise LifecycleError("INVALID_JSON_OBJECT", f"{path.name} must contain a JSON object")
+    return value
+
+
+def _atomic_json(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        json.dump(value, handle, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, path)
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _resolve_within(value: str | Path, root: Path, *, must_exist: bool = False) -> Path:
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve(strict=must_exist)
+    if not _is_within(resolved, root):
+        raise LifecycleError("PATH_OUTSIDE_WORKSPACE", "Path must stay inside the session workspace")
+    return resolved
+
+
+def _workspace(arguments: argparse.Namespace) -> Path:
+    return Path(arguments.workspace_root).expanduser().resolve(strict=True)
+
+
+def _job_root(arguments: argparse.Namespace, workspace: Path) -> Path:
+    value = arguments.job_root or f".be-skill-jobs/{_skill_name()}"
+    root = _resolve_within(value, workspace)
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _job_dir(root: Path, job_id: str) -> Path:
+    if not JOB_ID_PATTERN.fullmatch(job_id):
+        raise LifecycleError("JOB_NOT_FOUND", "Invalid job ID")
+    path = (root / job_id).resolve()
+    if not _is_within(path, root):
+        raise LifecycleError("JOB_NOT_FOUND", "Invalid job ID")
+    return path
+
+
+@contextmanager
+def _locked(job_dir: Path) -> Iterator[None]:
+    job_dir.mkdir(parents=True, exist_ok=True)
+    with (job_dir / "status.lock").open("a+b") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _read_status(job_dir: Path) -> dict[str, Any]:
+    path = job_dir / "status.json"
+    if not path.is_file():
+        raise LifecycleError("JOB_NOT_FOUND", "Skill job does not exist")
+    return _json_read(path)
+
+
+def _mutate_status(job_dir: Path, update: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    with _locked(job_dir):
+        status = _read_status(job_dir)
+        update(status)
+        status["updated_at"] = _now()
+        _atomic_json(job_dir / "status.json", status)
+        return status
+
+
+def _redact(value: Any, status: dict[str, Any]) -> Any:
+    if isinstance(value, str):
+        replacements = [
+            (status.get("workspace_root"), "."),
+            (status.get("job_root"), ".be-skill-jobs"),
+            (status.get("artifact_root"), "artifacts"),
+            (str(Path(__file__).resolve().parents[1]), "$SKILL_ROOT"),
+        ]
+        for hidden, replacement in replacements:
+            if isinstance(hidden, str) and hidden:
+                value = value.replace(hidden, replacement)
+        return value
+    if isinstance(value, list):
+        return [_redact(item, status) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact(item, status) for key, item in value.items()}
+    return value
+
+
+def _public_status(status: dict[str, Any]) -> dict[str, Any]:
+    hidden = {
+        "workspace_root",
+        "job_root",
+        "artifact_root",
+        "worker_pid",
+        "worker_pgid",
+        "worker_start_ticks",
+        "request_file",
+        "answers_file",
+        "cancellation_requested",
+    }
+    return _redact({key: value for key, value in status.items() if key not in hidden}, status)
+
+
+def _problem(status: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    raw = payload.get("error", status.get("error"))
+    raw = raw if isinstance(raw, dict) else {"message": str(raw or "Skill execution failed")}
+    raw_code = str(raw.get("code", "TURN_FAILED"))
+    if raw_code in _PROBLEM_CODES:
+        code = raw_code
+    elif status.get("status") == "interrupted" or raw_code == "WORKER_INTERRUPTED":
+        code = "TURN_INTERRUPTED"
+    elif raw_code in {"JOB_NOT_FOUND"}:
+        code = "RESOURCE_NOT_FOUND"
+    elif raw_code in {"CANCEL_NOT_CONFIRMED"}:
+        code = "CANCEL_FAILED"
+    elif raw_code.startswith("INVALID_") or raw_code in {"PATH_OUTSIDE_WORKSPACE", "SOURCE_HASH_REQUIRED"}:
+        code = "VALIDATION_ERROR"
+    else:
+        code = "TURN_FAILED"
+    status_code = {
+        "VALIDATION_ERROR": 400,
+        "RESOURCE_NOT_FOUND": 404,
+        "CANCEL_FAILED": 409,
+        "DEPENDENCY_MISSING": 503,
+        "TURN_INTERRUPTED": 500,
+    }.get(code, 500)
+    detail = str(raw.get("detail") or raw.get("message") or "Skill execution failed").strip()
+    if not detail:
+        detail = "Skill execution failed"
+    title = {
+        "VALIDATION_ERROR": "Skill request validation failed",
+        "RESOURCE_NOT_FOUND": "Skill resource not found",
+        "CANCEL_FAILED": "Skill cancellation failed",
+        "DEPENDENCY_MISSING": "Skill dependency is unavailable",
+        "TURN_INTERRUPTED": "Skill execution was interrupted",
+    }.get(code, "Skill execution failed")
+    return {
+        "type": f"https://building-energy.local/problems/{code.casefold().replace('_', '-')}",
+        "title": title,
+        "status": status_code,
+        "detail": detail[:2000],
+        "code": code,
+        "correlation_id": f"corr-{status['job_id']}",
+    }
+
+
+def _result_refs(artifacts: Any, status: dict[str, Any]) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    session_id = status.get("session_id")
+    turn_id = status.get("turn_id")
+    if not isinstance(session_id, str) or not isinstance(turn_id, str):
+        return refs
+    manifest_url = f"/api/v1/sessions/{quote(session_id, safe='')}/artifacts?turn_id={quote(turn_id, safe='')}"
+    if not isinstance(artifacts, list):
+        return refs
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_id = artifact.get("artifact_id")
+        artifact_type = artifact.get("artifact_type")
+        artifact_status = artifact.get("status")
+        if not all(isinstance(value, str) and value for value in (artifact_id, artifact_type, artifact_status)):
+            continue
+        refs.append(
+            {
+                "artifact_id": artifact_id,
+                "artifact_type": artifact_type,
+                "status": artifact_status,
+                "manifest_url": artifact.get("manifest_url") or manifest_url,
+            }
+        )
+    return refs
+
+
+def _event(status: dict[str, Any], kind: str | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    state = status["status"]
+    if kind is None:
+        kind = {
+            "queued": "started",
+            "running": "progress",
+            "needs_input": "needs_input",
+            "succeeded": "completed",
+            "partial": "completed",
+            "failed": "failed",
+            "cancelled": "cancelled",
+            "interrupted": "failed",
+        }[state]
+    event_payload = payload if payload is not None else _public_status(status)
+    event = {
+        "protocol_version": PROTOCOL_VERSION,
+        "timestamp": status.get("updated_at", _now()),
+        "skill_name": status["skill_name"],
+        "job_id": status["job_id"],
+        "kind": kind,
+        "stage": status.get("stage", "unknown"),
+        "warnings": [str(warning)[:2000] for warning in status.get("warnings", []) if str(warning)],
+        "payload": event_payload,
+    }
+    if kind == "progress":
+        event["progress"] = status.get("progress", {"completed": 0, "total": 1, "unit": "stage"})
+    elif kind == "needs_input":
+        event["questions"] = _structured_questions(
+            status.get("questions", event_payload.get("questions", status.get("required_inputs", [])))
+        )
+    elif kind == "artifact":
+        artifact = event_payload.get("artifact", event_payload)
+        event["artifact_id"] = artifact["artifact_id"]
+        event["manifest_relative_path"] = artifact["manifest_relative_path"]
+    elif kind == "completed":
+        event["outcome"] = status["status"]
+        event["result_refs"] = _result_refs(
+            event_payload.get("artifact_refs", status.get("artifact_refs", [])),
+            status,
+        )
+    elif kind == "failed":
+        event["error"] = _problem(status, event_payload)
+    elif kind == "cancelled" and isinstance(status.get("cancellation_reason"), str):
+        event["reason"] = status["cancellation_reason"][:1000]
+    identity = {
+        "attempt": status.get("attempt", 1),
+        **{
+            key: value
+            for key, value in event.items()
+            if key not in {"event_id", "timestamp", "payload"}
+        },
+    }
+    encoded = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    event["event_id"] = f"evt-{hashlib.sha256(encoded).hexdigest()[:32]}"
+    return event
+
+
+def _structured_questions(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    questions: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        if all(key in item for key in ("id", "question", "options", "allow_free_text", "required")):
+            questions.append(item)
+            continue
+        parameter = item.get("parameter")
+        if not isinstance(parameter, str) or not parameter:
+            continue
+        reason = item.get("reason")
+        detail = f"（{reason}）" if isinstance(reason, str) and reason else ""
+        questions.append(
+            {
+                "id": f"skill-input-{re.sub(r'[^A-Za-z0-9.:-]+', '-', parameter)}",
+                "question": f"需要补充 {parameter}{detail}。请根据候选配置确认后继续。",
+                "options": [],
+                "allow_free_text": True,
+                "required": True,
+            }
+        )
+    return questions
+
+
+def _emit(status: dict[str, Any], kind: str | None = None, payload: dict[str, Any] | None = None) -> None:
+    print(PREFIX + json.dumps(_event(status, kind, payload), ensure_ascii=False, sort_keys=True, allow_nan=False), flush=True)
+
+
+def _pid_start_ticks(pid: int) -> int | None:
+    try:
+        return int(Path(f"/proc/{pid}/stat").read_text(encoding="utf-8").split()[21])
+    except (FileNotFoundError, IndexError, OSError, ValueError):
+        return None
+
+
+def _process_alive(status: dict[str, Any]) -> bool:
+    pid = status.get("worker_pid")
+    expected = status.get("worker_start_ticks")
+    if not isinstance(pid, int) or not isinstance(expected, int):
+        return False
+    current = _pid_start_ticks(pid)
+    if current != expected:
+        return False
+    try:
+        process_state = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8").split()[2]
+    except (FileNotFoundError, IndexError, OSError):
+        return False
+    return process_state != "Z"
+
+
+def _spawn_worker(job_dir: Path, status: dict[str, Any]) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "_worker",
+        "--job-id",
+        status["job_id"],
+        "--workspace-root",
+        status["workspace_root"],
+        "--job-root",
+        status["job_root"],
+    ]
+    with (job_dir / "worker.log").open("ab", buffering=0) as output:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            close_fds=True,
+        )
+    start_ticks = None
+    for _ in range(50):
+        start_ticks = _pid_start_ticks(process.pid)
+        if start_ticks is not None:
+            break
+        time.sleep(0.01)
+
+    def remember(current: dict[str, Any]) -> None:
+        if current["status"] in TERMINAL:
+            return
+        current["worker_pid"] = process.pid
+        current["worker_pgid"] = process.pid
+        current["worker_start_ticks"] = start_ticks
+
+    return _mutate_status(job_dir, remember)
+
+
+def _start(arguments: argparse.Namespace) -> int:
+    workspace = _workspace(arguments)
+    request_path = _resolve_within(arguments.request, workspace, must_exist=True)
+    request = _json_read(request_path)
+    job_root = _job_root(arguments, workspace)
+    artifact_root = _resolve_within(arguments.artifact_root or "artifacts", workspace)
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    if (arguments.session_id is None) != (arguments.turn_id is None):
+        raise LifecycleError("INVALID_TURN_CONTEXT", "session-id and turn-id must be provided together")
+    if arguments.session_id is not None and (
+        not OPAQUE_ID_PATTERN.fullmatch(arguments.session_id)
+        or not OPAQUE_ID_PATTERN.fullmatch(arguments.turn_id)
+    ):
+        raise LifecycleError("INVALID_TURN_CONTEXT", "session-id and turn-id must be opaque identifiers")
+    job_id = f"job-{uuid.uuid4().hex}"
+    job_dir = _job_dir(job_root, job_id)
+    job_dir.mkdir(parents=False, exist_ok=False)
+    _atomic_json(job_dir / "request.json", request)
+    status = {
+        "protocol_version": PROTOCOL_VERSION,
+        "skill_name": _skill_name(),
+        "job_id": job_id,
+        "status": "queued",
+        "stage": "queued",
+        "progress": {"completed": 0, "total": 1, "unit": "stage"},
+        "warnings": [],
+        **({"session_id": arguments.session_id, "turn_id": arguments.turn_id} if arguments.session_id else {}),
+        "attempt": 1,
+        "created_at": _now(),
+        "updated_at": _now(),
+        "workspace_root": str(workspace),
+        "job_root": str(job_root),
+        "artifact_root": str(artifact_root),
+        "request_file": "request.json",
+    }
+    _atomic_json(job_dir / "status.json", status)
+    if os.environ.get("BE_SKILL_FOREGROUND") == "1":
+        _emit(status, "started")
+        foreground = argparse.Namespace(
+            job_id=job_id, workspace_root=str(workspace), job_root=str(job_root)
+        )
+        result = _worker(foreground)
+        return _result(foreground) if _read_status(job_dir)["status"] in {"succeeded", "partial"} else result
+    status = _spawn_worker(job_dir, status)
+    _emit(status, "started")
+    return 0
+
+
+def _status(arguments: argparse.Namespace) -> int:
+    workspace = _workspace(arguments)
+    job_dir = _job_dir(_job_root(arguments, workspace), arguments.job_id)
+    status = _read_status(job_dir)
+    if status["status"] in {"queued", "running"} and not _process_alive(status):
+        def interrupt(current: dict[str, Any]) -> None:
+            if current["status"] in {"queued", "running"}:
+                current.update(
+                    status="interrupted",
+                    stage="interrupted",
+                    error={
+                        "code": "WORKER_INTERRUPTED",
+                        "message": "The persisted worker is no longer running.",
+                        "recovery": "Start a new job with the same request.",
+                    },
+                )
+
+        status = _mutate_status(job_dir, interrupt)
+    _emit(status)
+    return 0
+
+
+def _result(arguments: argparse.Namespace) -> int:
+    workspace = _workspace(arguments)
+    job_dir = _job_dir(_job_root(arguments, workspace), arguments.job_id)
+    status = _read_status(job_dir)
+    if status["status"] not in TERMINAL:
+        _emit(status, payload={"status": status["status"], "result_ready": False})
+        return 2
+    result_path = job_dir / "result.json"
+    result = _json_read(result_path) if result_path.is_file() else {
+        "job_id": status["job_id"],
+        "status": status["status"],
+        "error": status.get("error"),
+    }
+    result = _redact(result, status)
+    for artifact in result.get("artifact_refs", []):
+        _emit(status, "artifact", {"artifact": artifact})
+    _emit(status, payload=result)
+    return 0 if status["status"] in {"succeeded", "partial"} else 2
+
+
+def _resume(arguments: argparse.Namespace) -> int:
+    workspace = _workspace(arguments)
+    answers_path = _resolve_within(arguments.answers, workspace, must_exist=True)
+    answers = _json_read(answers_path)
+    job_dir = _job_dir(_job_root(arguments, workspace), arguments.job_id)
+    status = _read_status(job_dir)
+    if status["status"] != "needs_input":
+        raise LifecycleError("JOB_NOT_RESUMABLE", "Only a needs_input job can be resumed", {"status": status["status"]})
+    _atomic_json(job_dir / "answers.json", answers)
+
+    def queue(current: dict[str, Any]) -> None:
+        current.update(
+            status="queued",
+            stage="resumed",
+            progress={"completed": 0, "total": 1, "unit": "stage"},
+            attempt=int(current.get("attempt", 1)) + 1,
+            answers_file="answers.json",
+        )
+        for key in ("error", "required_inputs", "cancellation_requested"):
+            current.pop(key, None)
+
+    status = _mutate_status(job_dir, queue)
+    if os.environ.get("BE_SKILL_FOREGROUND") == "1":
+        _emit(status, "started", {"status": "queued", "resumed": True, "attempt": status["attempt"]})
+        foreground = argparse.Namespace(
+            job_id=status["job_id"],
+            workspace_root=str(workspace),
+            job_root=str(status["job_root"]),
+        )
+        result = _worker(foreground)
+        return _result(foreground) if _read_status(job_dir)["status"] in {"succeeded", "partial"} else result
+    status = _spawn_worker(job_dir, status)
+    _emit(status, "started", {"status": "queued", "resumed": True, "attempt": status["attempt"]})
+    return 0
+
+
+def _cancel(arguments: argparse.Namespace) -> int:
+    workspace = _workspace(arguments)
+    job_dir = _job_dir(_job_root(arguments, workspace), arguments.job_id)
+
+    def request_cancel(current: dict[str, Any]) -> None:
+        if current["status"] in TERMINAL:
+            return
+        current["cancellation_requested"] = True
+        current["stage"] = "cancelling"
+
+    status = _mutate_status(job_dir, request_cancel)
+    if status["status"] in TERMINAL:
+        _emit(status)
+        return 0
+    pgid = status.get("worker_pgid")
+    if isinstance(pgid, int) and _process_alive(status):
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        deadline = time.monotonic() + arguments.grace_seconds
+        while _process_alive(status) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        if _process_alive(status):
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        deadline = time.monotonic() + 2.0
+        while _process_alive(status) and time.monotonic() < deadline:
+            time.sleep(0.05)
+    if _process_alive(status):
+        raise LifecycleError("CANCEL_NOT_CONFIRMED", "Worker process did not stop")
+
+    def finish_cancel(current: dict[str, Any]) -> None:
+        if current["status"] not in TERMINAL or current["status"] == "interrupted":
+            current.update(status="cancelled", stage="cancelled")
+            current["progress"] = current.get("progress", {"completed": 0, "total": 1, "unit": "stage"})
+
+    status = _mutate_status(job_dir, finish_cancel)
+    _atomic_json(job_dir / "result.json", {"job_id": status["job_id"], "status": status["status"]})
+    _emit(status, "cancelled")
+    return 0
+
+
+def _worker_signal(_signum: int, _frame: Any) -> None:
+    global _CANCELLATION_REQUESTED
+    _CANCELLATION_REQUESTED = True
+    raise WorkerCancelled("worker cancellation requested")
+
+
+def _worker(arguments: argparse.Namespace) -> int:
+    signal.signal(signal.SIGTERM, _worker_signal)
+    signal.signal(signal.SIGINT, _worker_signal)
+    workspace = _workspace(arguments)
+    job_dir = _job_dir(_job_root(arguments, workspace), arguments.job_id)
+    status = _read_status(job_dir)
+
+    def mark_running(current: dict[str, Any]) -> None:
+        if current.get("cancellation_requested"):
+            raise WorkerCancelled("cancelled before execution")
+        current.update(status="running", stage="starting")
+
+    try:
+        status = _mutate_status(job_dir, mark_running)
+        _emit(status, "progress")
+        request = _json_read(job_dir / status["request_file"])
+        answers = _json_read(job_dir / status["answers_file"]) if status.get("answers_file") else None
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        adapter = importlib.import_module("skill_adapter")
+
+        def progress(stage: str, completed: int, total: int, warnings: list[str] | None = None) -> None:
+            if _CANCELLATION_REQUESTED:
+                raise WorkerCancelled("worker cancellation requested")
+
+            def update(current: dict[str, Any]) -> None:
+                if current.get("cancellation_requested") or current["status"] == "cancelled":
+                    raise WorkerCancelled("worker cancellation requested")
+                current.update(
+                    status="running",
+                    stage=stage,
+                    progress={"completed": completed, "total": total, "unit": "stage"},
+                )
+                if warnings is not None:
+                    current["warnings"] = warnings
+
+            current = _mutate_status(job_dir, update)
+            _emit(current, "progress")
+
+        outcome = adapter.execute(
+            request=request,
+            answers=answers,
+            job_dir=job_dir,
+            workspace_root=Path(status["workspace_root"]),
+            artifact_root=Path(status["artifact_root"]),
+            progress=progress,
+        )
+        if not isinstance(outcome, dict):
+            raise LifecycleError("PROTOCOL_ERROR", "Skill adapter returned a non-object result")
+        final_state = outcome.get("status", "succeeded")
+        if final_state not in {"succeeded", "partial", "needs_input", "failed"}:
+            raise LifecycleError("PROTOCOL_ERROR", f"Unsupported adapter status: {final_state!r}")
+        final_result = {"job_id": status["job_id"], **outcome}
+        _atomic_json(job_dir / "result.json", final_result)
+
+        def finish(current: dict[str, Any]) -> None:
+            if current.get("cancellation_requested") or current["status"] == "cancelled":
+                raise WorkerCancelled("worker cancellation requested")
+            current.update(
+                status=final_state,
+                stage="awaiting_input" if final_state == "needs_input" else ("completed" if final_state in {"succeeded", "partial"} else "failed"),
+                progress={"completed": 1, "total": 1, "unit": "stage"},
+                warnings=outcome.get("warnings", []),
+            )
+            if "required_inputs" in outcome:
+                current["required_inputs"] = outcome["required_inputs"]
+            if "artifact_refs" in outcome:
+                current["artifact_refs"] = outcome["artifact_refs"]
+            if "error" in outcome:
+                current["error"] = outcome["error"]
+
+        status = _mutate_status(job_dir, finish)
+        _emit(status)
+        return 0 if final_state in {"succeeded", "partial", "needs_input"} else 2
+    except WorkerCancelled:
+        def cancelled(current: dict[str, Any]) -> None:
+            current.update(status="cancelled", stage="cancelled")
+
+        status = _mutate_status(job_dir, cancelled)
+        _atomic_json(job_dir / "result.json", {"job_id": status["job_id"], "status": "cancelled"})
+        _emit(status, "cancelled")
+        return 130
+    except ModuleNotFoundError as exc:
+        error = {
+            "code": "DEPENDENCY_MISSING",
+            "message": f"Required Python module is unavailable: {exc.name}",
+            "recovery": f"Run scripts/install-skills {_skill_name()} outside a business turn.",
+        }
+    except LifecycleError as exc:
+        error = {"code": exc.code, "message": str(exc), "details": exc.details}
+    except Exception as exc:
+        error = {"code": "SKILL_EXECUTION_FAILED", "message": f"{type(exc).__name__}: {exc}"}
+
+    def failed(current: dict[str, Any]) -> None:
+        if current.get("cancellation_requested") or current["status"] == "cancelled":
+            current.update(status="cancelled", stage="cancelled")
+            return
+        current.update(status="failed", stage="failed", error=error)
+
+    status = _mutate_status(job_dir, failed)
+    _atomic_json(job_dir / "result.json", {"job_id": status["job_id"], "status": status["status"], "error": error})
+    _emit(status)
+    return 2
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="skillctl")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    start = commands.add_parser("start")
+    start.add_argument("--request", required=True)
+    start.add_argument("--artifact-root")
+    start.add_argument("--session-id", required=True)
+    start.add_argument("--turn-id", required=True)
+
+    status = commands.add_parser("status")
+    status.add_argument("--job-id", required=True)
+
+    result = commands.add_parser("result")
+    result.add_argument("--job-id", required=True)
+
+    resume = commands.add_parser("resume")
+    resume.add_argument("--job-id", required=True)
+    resume.add_argument("--answers", required=True)
+
+    cancel = commands.add_parser("cancel")
+    cancel.add_argument("--job-id", required=True)
+    cancel.add_argument("--grace-seconds", type=float, default=5.0)
+
+    worker = commands.add_parser("_worker")
+    worker.add_argument("--job-id", required=True)
+
+    for command in (start, status, result, resume, cancel, worker):
+        command.add_argument("--workspace-root", default=".")
+        command.add_argument("--job-root")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    arguments = _parser().parse_args(argv)
+    try:
+        return {
+            "start": _start,
+            "status": _status,
+            "result": _result,
+            "resume": _resume,
+            "cancel": _cancel,
+            "_worker": _worker,
+        }[arguments.command](arguments)
+    except LifecycleError as exc:
+        status = {
+            "skill_name": _skill_name(),
+            "job_id": getattr(arguments, "job_id", "job-" + "0" * 32),
+            "status": "failed",
+            "stage": "failed",
+            "progress": {"completed": 0, "total": 1, "unit": "stage"},
+            "warnings": [],
+        }
+        _emit(status, "failed", {"error": {"code": exc.code, "message": str(exc), "details": exc.details}})
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

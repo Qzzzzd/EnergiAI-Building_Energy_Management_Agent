@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "tsBuildInfoFile": "../../.runtime/tsbuildinfo/web-node.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts", "playwright.config.ts"]
+}

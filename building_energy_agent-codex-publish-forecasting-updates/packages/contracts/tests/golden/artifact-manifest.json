@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "artifact-001",
+  "artifact_type": "forecast.result",
+  "producer": {
+    "skill_name": "building-energy-load-forecasting",
+    "job_id": "job-001"
+  },
+  "source_ids": ["source-001"],
+  "status": "succeeded",
+  "files": [
+    {
+      "relative_path": "forecast/result.json",
+      "media_type": "application/json",
+      "size_bytes": 128,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "role": "result"
+    }
+  ],
+  "summary": {
+    "horizon_hours": 24,
+    "timezone": "Asia/Shanghai"
+  },
+  "warnings": []
+}

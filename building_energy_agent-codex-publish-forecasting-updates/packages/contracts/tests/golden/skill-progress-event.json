@@ -1,0 +1,18 @@
+{
+  "protocol_version": "1.0",
+  "event_id": "7",
+  "skill_name": "building-energy-data-processing",
+  "job_id": "job-001",
+  "kind": "progress",
+  "stage": "build-features",
+  "progress": {
+    "completed": 2,
+    "total": 4,
+    "unit": "stage"
+  },
+  "timestamp": "2026-08-10T00:00:00+08:00",
+  "warnings": [],
+  "payload": {
+    "bundle_id": "processing-001"
+  }
+}

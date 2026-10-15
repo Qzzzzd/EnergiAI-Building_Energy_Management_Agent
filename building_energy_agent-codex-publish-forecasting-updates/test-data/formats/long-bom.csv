@@ -1,0 +1,4 @@
+﻿timestamp,point_id,value_raw,name,description,unit,variable_type
+2026-01-01 00:00:00,total_load,101.5,Total load,Chiller plant total load,kW,continuous
+2026-01-01 00:01:00,total_load,,Total load,Chiller plant total load,kW,continuous
+2026-01-01 00:02:00,total_load,103.5,Total load,Chiller plant total load,kW,continuous

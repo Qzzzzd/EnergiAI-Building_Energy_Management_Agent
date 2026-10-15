@@ -1,0 +1,44 @@
+{
+  "name": "@building-energy/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./generated/api-types": {
+      "types": "./generated/api-types.ts"
+    },
+    "./generated/openapi.json": "./generated/openapi.json"
+  },
+  "files": [
+    "dist",
+    "generated"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "generate": "tsx src/generate.ts",
+    "generate:check": "tsx src/generate.ts --check",
+    "check:generated": "tsx src/generate.ts --check",
+    "verify": "npm run generate:check && npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@asteasolutions/zod-to-openapi": "9.1.0",
+    "@types/node": "22.19.7",
+    "openapi3-ts": "4.6.1",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.6",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

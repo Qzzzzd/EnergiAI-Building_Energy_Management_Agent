@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+skills_root="${project_root}/.agents/skills"
+envs_root="${project_root}/.runtime/skill-envs"
+pip_cache="${project_root}/.runtime/pip-cache"
+python_bin="${BE_SKILL_PYTHON:-python3.12}"
+
+usage() {
+  printf '%s\n' "Usage: scripts/install-skills [skill-name ...]"
+  printf '%s\n' "Installs fixed dependencies explicitly; never call this from a business turn."
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if ! command -v "${python_bin}" >/dev/null 2>&1; then
+  printf '%s\n' "Python 3.12 is required: ${python_bin}" >&2
+  exit 2
+fi
+
+python_version="$(${python_bin} -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+if [[ "${python_version}" != "3.12" ]]; then
+  printf '%s\n' "Python 3.12 is required; found ${python_version}" >&2
+  exit 2
+fi
+
+declare -a selected=()
+if (($#)); then
+  selected=("$@")
+else
+  while IFS= read -r skill_dir; do
+    if [[ -f "${skill_dir}/requirements.lock" && -f "${skill_dir}/scripts/skillctl" ]]; then
+      selected+=("$(basename -- "${skill_dir}")")
+    fi
+  done < <(find "${skills_root}" -mindepth 1 -maxdepth 1 -type d -print | sort)
+fi
+
+mkdir -p -- "${envs_root}" "${pip_cache}"
+for skill_name in "${selected[@]}"; do
+  if [[ ! "${skill_name}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    printf '%s\n' "Invalid skill name: ${skill_name}" >&2
+    exit 2
+  fi
+  skill_dir="${skills_root}/${skill_name}"
+  lock_file="${skill_dir}/requirements.lock"
+  target_env="${envs_root}/${skill_name}"
+  if [[ ! -f "${skill_dir}/SKILL.md" || ! -f "${lock_file}" || ! -f "${skill_dir}/scripts/skillctl" ]]; then
+    printf '%s\n' "Skill is not installable: ${skill_name}" >&2
+    exit 2
+  fi
+  printf '%s\n' "Installing ${skill_name} into ${target_env}"
+  "${python_bin}" -m venv --clear "${target_env}"
+  "${target_env}/bin/python" -m pip install --disable-pip-version-check --cache-dir "${pip_cache}" -r "${lock_file}"
+  "${target_env}/bin/python" "${skill_dir}/scripts/skillctl" --help >/dev/null
+done
+
+printf '%s\n' "Skill installation complete. Run scripts/skill-doctor to verify."
